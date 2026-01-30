@@ -44,7 +44,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
-#define LED_PIN 2
+#define LED_PIN 4
+#define ACT_PIN 5
 #define TITLE "ESP8266 Telnet-to-Serial Bridge"
 #define IsConnected() (WiFi.status()==WL_CONNECTED)
 #define WebServer ESP8266WebServer
@@ -94,6 +95,7 @@ enum
     E_CONNECT19200
   };
 
+#define LED_TIMEOUT_VALUE 50
 
 struct TelnetStateStruct
 {
@@ -200,6 +202,7 @@ const int   bits[]   = {5, 6, 7, 8, 0};
 const char *parity[] = {"No parity", "Even parity", "Odd parity", NULL};
 const char *stop[]   = {"One stop bit", "Two stop bits", NULL};
 
+int ledTimeout = 0;
 
 void handleRoot() 
 {
@@ -550,6 +553,8 @@ void setup()
 {
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
+  pinMode(ACT_PIN, OUTPUT);
+  digitalWrite(ACT_PIN, LOW);
 
   // start serial interface with default parameters (9600 baud 8N1)
   Serial.begin(9600, SERIAL_8N1);
@@ -1366,11 +1371,13 @@ void relayModemData()
               uint8_t b = modemClient.read();
               if( !handleTelnetProtocol(b, modemClient, modemTelnetState, false) ) Serial.write(b);
             }
+            ledTimeout = LED_TIMEOUT_VALUE;
         }
       else if( modemClient.available() && Serial.availableForWrite() )
         {
           // limit data rate
           static unsigned long nextChar = 0;
+          ledTimeout = LED_TIMEOUT_VALUE;
           if( millis()>=nextChar )
             {
               uint8_t b = modemClient.read();
@@ -1450,6 +1457,7 @@ void relayTelnetData()
     if (serverClients[i] && serverClients[i].connected()) {
       if (serverClients[i].available()) {
         //get data from the telnet client and push it to the UART
+        ledTimeout = LED_TIMEOUT_VALUE;
         unsigned long t = millis();
         while(serverClients[i].available() && Serial.availableForWrite() && millis()-t < 100)
           {
@@ -1468,6 +1476,7 @@ void relayTelnetData()
       unsigned int millisPerChar = 1000 / (SerialData.baud / (1+SerialData.bits+SerialData.stopbits))+1;
       unsigned long t, startTime = millis();
           
+      ledTimeout = LED_TIMEOUT_VALUE;
       if( millisPerChar<5 ) millisPerChar = 5;
       while( Serial.available() && n<256 && millis()-startTime < 100 )
         {
@@ -1566,6 +1575,22 @@ void loop()
     relayTelnetData();
   else if( modemCommandMode )
     handleModemCommand();
+
+  // Handle LED Status
+  if (ledTimeout == LED_TIMEOUT_VALUE)
+  {
+    // We've just had traffic, set the LED's appropriately
+    digitalWrite(ACT_PIN, HIGH);
+    digitalWrite(LED_PIN, LOW);
+  }
+  if (ledTimeout > 0)
+  {
+    if (--ledTimeout == 0)
+    {
+      digitalWrite(ACT_PIN, LOW);
+      digitalWrite(LED_PIN, HIGH);
+    }    
+  }
 
   webserver.handleClient();
 }
