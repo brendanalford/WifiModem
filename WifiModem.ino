@@ -478,7 +478,7 @@ void GetWiFiData(const char *msg)
      Serial.println("Press C to configure WiFi connection information.\n");
      
      unsigned long t = millis()+2000;
-     while( millis()<t ) if( Serial.available()>0 && Serial.read()=='C' ) { go = false; break; }
+     while( millis()<t ) if( Serial.available()>0 && tolower(Serial.read())=='c' ) { go = false; break; }
      yield();
   }
 
@@ -536,14 +536,14 @@ void PrintNetworkInfo()
 #if defined(ARDUINO_WT32_ETH01)
   if( eth_connected )
     {
-      Serial.println("\nConnected to wired (ethernet) network.");
+      Serial.println("Connected to wired (ethernet) network.");
       Serial.print("Listening on port 23 (telnet) at IP "); Serial.println(ETH.localIP());
     }
 #endif
 
   if( (WiFi.status()==WL_CONNECTED) )
     {
-      Serial.print("\nConnected to network "); Serial.println(WifiData.ssid);
+      Serial.print("Connected to network "); Serial.println(WifiData.ssid);
       Serial.print("Listening on port 23 (telnet) at IP "); Serial.println(WiFi.localIP());
     }
 }
@@ -555,12 +555,6 @@ void setup()
   digitalWrite(LED_PIN, LOW);
   pinMode(ACT_PIN, OUTPUT);
   digitalWrite(ACT_PIN, LOW);
-
-  // start serial interface with default parameters (9600 baud 8N1)
-  Serial.begin(9600, SERIAL_8N1);
-#if defined(ARDUINO_WT32_ETH01)
-  Serial2.setPins(RXD2, TXD2);
-#endif
 
   // read serial info
   EEPROM.begin(1024);
@@ -588,6 +582,16 @@ void setup()
       SerialData.telnetTerminalType[i]=0;
     }
 
+    // start serial interface
+  applySerialSettings();
+
+  Serial.println("");
+  Serial.println("RC2014 ESP8266 Wifi Module");
+  Serial.println("Firmware by David Hansel, https://github.com/dhansel/WifiModem");
+  Serial.println("Modified by Brendan Alford for RC2014 platform\n");
+  char buf[80];
+  sprintf(buf, "%d bps, %d%s%d", SerialData.baud, SerialData.bits, SerialData.parity == 0 ? "N" : "Y", SerialData.stopbits);
+  Serial.print("Serial interface initialised: "); Serial.println(buf);
   // read WiFi info
   WiFi.mode(WIFI_STA);
   EEPROM.get(0, WifiData);
@@ -630,6 +634,7 @@ void setup()
     {
       int c=0, i=20;
 
+      Serial.print("\nConnecting to network "); Serial.print(WifiData.ssid); Serial.println("...");
       // try to connect to WiFi
       WiFi.begin(WifiData.ssid, WifiData.key);
 
@@ -669,11 +674,11 @@ void setup()
 
   // if normal operation is different from 9600 8N1 then print info now
   // (and again after switching)
-  if( !SerialData.silent && (SerialData.baud!=9600 || GetSerialConfig()!=SERIAL_8N1) && IsConnected() )
-    {
-      PrintNetworkInfo();
-      Serial.flush();
-    }
+//    if( !SerialData.silent && (SerialData.baud!=9600 || GetSerialConfig()!=SERIAL_8N1) && IsConnected() )
+//      {
+//        PrintNetworkInfo();
+//        Serial.flush();
+//      }
 
   // re-start serial interface with normal operation parameters
   applySerialSettings();
@@ -800,6 +805,7 @@ void printModemResult(byte code)
             case E_CONNECT4800   : Serial.print("CONNECT 4800");   break;
             case E_CONNECT9600   : Serial.print("CONNECT 9600");   break;
             case E_CONNECT14400  : Serial.print("CONNECT 14400");  break;
+            
             default:
               {
                 char buf[20];
