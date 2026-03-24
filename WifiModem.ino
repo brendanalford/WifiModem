@@ -671,7 +671,17 @@ void setup()
     }
 
   digitalWrite(LED_PIN, IsConnected());
+  if (IsConnected())
+  {
+    digitalWrite(LED_PIN, true);
+    digitalWrite(ACT_PIN, false);
 
+  }
+  else 
+  {
+    digitalWrite(LED_PIN, false);
+    digitalWrite(ACT_PIN, true);
+  }
   // if normal operation is different from 9600 8N1 then print info now
   // (and again after switching)
 //    if( !SerialData.silent && (SerialData.baud!=9600 || GetSerialConfig()!=SERIAL_8N1) && IsConnected() )
